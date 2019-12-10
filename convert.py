@@ -18,7 +18,7 @@ def decode_rl_pixels(rle_string):
 mask_pixels = decode_rl_pixels(rle)
 
 path = './severstal-steel-defect-detection/'+'test_images/'
-image_name = '0a3962685.jpg'
+image_name = '0c124b96b.jpg'
 img_location = path + image_name
 
 img = cv2.imread(img_location)
