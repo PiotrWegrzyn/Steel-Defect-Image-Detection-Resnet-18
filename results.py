@@ -89,62 +89,6 @@ def compute_iou(target, prediction):
 
 
 
-def plot_mask(image_filename):
-    '''
-    Function to plot an image and true/predicted segmentation masks.
-    INPUT:
-        image_filename - filename of the image (with full path)
-    '''
-    img_id = image_filename.split('/')[-1]
-    image = Image.open(image_filename)
-    train = train_df.fillna('-1')
-    pred = results_df.fillna('-1')
-
-    rle_masks = train[(train['Image'] == img_id)]['EncodedPixels'].values
-    pred_masks = pred[(pred['Image'] == img_id)]['EncodedPixels'].values
-    # ImageId_ClassId
-    fig, axs = plt.subplots(4, 2, figsize=(20, 7))
-
-    iou = 0
-    for defect in range(1, pred_masks.size+1):
-        rle_mask = rle_masks[defect - 1]
-        pred_mask = pred_masks[defect - 1]
-        np_mask = np.zeros((256, 1600), dtype=np.uint8)
-        np_mask_pred = 0
-
-        if rle_mask != '-1':
-            np_mask = rle2maskResize(rle_mask)
-            axs[defect - 1, 0].imshow(image)
-            axs[defect - 1, 0].imshow(np_mask, alpha=0.5, cmap="Reds")
-            axs[defect - 1, 0].axis('off')
-            axs[defect - 1, 0].set_title('Mask with defect #{}'.format(defect))
-        else:
-            axs[defect - 1, 0].imshow(image)
-            axs[defect - 1, 0].axis('off')
-            axs[defect - 1, 0].set_title('No defects type #{}'.format(defect))
-
-        if pred_mask != '-1':
-            np_mask_pred = rle2maskResize(pred_mask)
-            axs[defect - 1, 1].imshow(image)
-            axs[defect - 1, 1].imshow(np_mask_pred, alpha=0.5, cmap="Reds")
-            axs[defect - 1, 1].axis('off')
-            axs[defect - 1, 1].set_title('Prediction for mask with defect #{}'.format(defect))
-        else:
-            axs[defect - 1, 1].imshow(image)
-            axs[defect - 1, 1].axis('off')
-            axs[defect - 1, 1].set_title('No prediction for defects type #{}'.format(defect))
-
-        # calculate average IOU for all defects
-        iou += compute_iou(np_mask, np_mask_pred)
-
-    plt.suptitle('IOU for image: {:.2f}'.format(iou), fontsize=16)
-
-    plt.show()
-
-
-# plot_mask(TRAIN_PATH + '0002cc93b.jpg')
-
-
 def plot_mask_by_id(idx):
     '''
     Plots true mask and predicted mask by id in train_df
@@ -152,14 +96,15 @@ def plot_mask_by_id(idx):
 
     pred_mask = results_df.iloc[idx]['EncodedPixels']
     img_name_defect = results_df.iloc[idx]["ImageId_ClassId"]
-    rle_mask = get_mask_by_img_clsid(train_df, img_name_defect)
-    image_name = get_row_by_img_clsid(train_df, img_name_defect).iloc[0]['Image']
+    source_data_row = get_row_by_img_clsid(train_df, img_name_defect).iloc[0]
+    rle_mask = source_data_row["EncodedPixels"]
+    source_image_name = source_data_row['Image']
 
 
-    image_filename = TRAIN_PATH + image_name
+    image_filename = TRAIN_PATH + source_image_name
     image = Image.open(image_filename)
 
-    defect = train_df.iloc[idx]['Label']
+    defect = source_data_row['Label']
 
     true = rle2maskResize(rle_mask)
     pred = rle2maskResize(pred_mask)
@@ -171,14 +116,14 @@ def plot_mask_by_id(idx):
     axs[0].imshow(image)
     axs[0].imshow(true, alpha=0.5, cmap="Reds")
     axs[0].axis('off')
-    axs[0].set_title('Mask with defect #{}'.format(defect))
+    axs[0].set_title('Source')
 
     axs[1].imshow(image)
     axs[1].imshow(pred, alpha=0.5, cmap="Reds")
     axs[1].axis('off')
-    axs[1].set_title('Predicted mask for defect #{}'.format(defect))
+    axs[1].set_title('Predicted')
 
-    plt.suptitle('IOU for image: {:.8f}'.format(iou), fontsize=16)
+    plt.suptitle('Image: {} IOU: {:.8f}'.format(img_name_defect, iou), fontsize=16)
 
     plt.show()
 
@@ -213,7 +158,7 @@ def calculate_avarage_iou(results_img_ids):
 
 print("Average IOU: {:.8f}".format(calculate_avarage_iou(results_img_ids)))
 
-for idx in results_img_ids[:10]:
+for idx in results_img_ids[20:40]:
     plot_mask_by_id(idx)
 
 
