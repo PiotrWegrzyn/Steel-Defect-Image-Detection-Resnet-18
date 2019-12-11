@@ -213,7 +213,7 @@ def calculate_avarage_iou(results_img_ids):
 
 print("Average IOU: {:.8f}".format(calculate_avarage_iou(results_img_ids)))
 
-# for idx in results_img_ids[:10]:
-#     plot_mask_by_id(idx)
+for idx in results_img_ids[:10]:
+    plot_mask_by_id(idx)
 
 
