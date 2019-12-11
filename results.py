@@ -2,6 +2,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from sklearn.metrics import *
 from PIL import Image
 
 from scipy.ndimage import label, generate_binary_structure
@@ -17,8 +18,6 @@ results_df = pd.read_csv('./submission_training.csv')
 
 print(train_df.head(3))
 print(results_df.head(3))
-
-
 
 
 def preprocess_df(df):
@@ -46,11 +45,17 @@ print(train_df.columns.values.tolist())
 print(train_df.head(1).values.tolist())
 
 
+def get_row_by_img_clsid(df, fname):
+    return df.loc[df["ImageId_ClassId"] == fname]
+
+
 def get_mask_by_img_clsid(df, fname):
     try:
-        return df.loc[df["ImageId_ClassId"] == fname]["EncodedPixels"].values[0]
+        row = get_row_by_img_clsid(df, fname)
+        return row["EncodedPixels"].values[0]
     except IndexError:
         return None
+
 
 def rle2maskResize(rle):
     # CONVERT RLE TO MASK
@@ -69,23 +74,27 @@ def rle2maskResize(rle):
 
     return mask.reshape((height, width), order='F')
 
+def compute_iou(y_true, y_pred):
+    a = y_true.tolist()
+    return jaccard_score(y_true.tolist(), y_pred.tolist(), average='micro')
 
-def compute_iou(target, prediction):
-    '''
-    Function to compute IOU metric
-    See:
-    https://www.jeremyjordan.me/evaluating-image-segmentation-models/
-    '''
-    target = np.asarray(target, dtype=float)
-    prediction = np.asarray(prediction, dtype=float)
 
-    smooth = 1e-5  # smoothing for empty masks
-
-    intersection = np.logical_and(target, prediction)
-    union = np.logical_or(target, prediction)
-    iou_score = np.sum(intersection) / (np.sum(union) + smooth)
-
-    return iou_score
+# def compute_iou(target, prediction):
+#     '''
+#     Function to compute IOU metric
+#     See:
+#     https://www.jeremyjordan.me/evaluating-image-segmentation-models/
+#     '''
+#     target = np.asarray(target, dtype=float)
+#     prediction = np.asarray(prediction, dtype=float)
+#
+#     smooth = 1e-5  # smoothing for empty masks
+#
+#     intersection = np.logical_and(target, prediction)
+#     union = np.logical_or(target, prediction)
+#     iou_score = np.sum(intersection) / (np.sum(union) + smooth)
+#
+#     return iou_score
 
 
 
@@ -109,7 +118,7 @@ def plot_mask(image_filename):
     for defect in range(1, pred_masks.size+1):
         rle_mask = rle_masks[defect - 1]
         pred_mask = pred_masks[defect - 1]
-        np_mask = 0
+        np_mask = np.zeros((256, 1600), dtype=np.uint8)
         np_mask_pred = 0
 
         if rle_mask != '-1':
@@ -142,7 +151,7 @@ def plot_mask(image_filename):
     plt.show()
 
 
-plot_mask(TRAIN_PATH + '0002cc93b.jpg')
+# plot_mask(TRAIN_PATH + '0002cc93b.jpg')
 
 
 def plot_mask_by_id(idx):
@@ -154,7 +163,8 @@ def plot_mask_by_id(idx):
     image = Image.open(image_filename)
 
     rle_mask = train_df.iloc[idx]['EncodedPixels']
-    pred_mask = results_df.iloc[idx]['EncodedPixels']
+    img_name = train_df.iloc[idx]["ImageId_ClassId"]
+    pred_mask = get_mask_by_img_clsid(results_df, img_name)
 
     defect = train_df.iloc[idx]['Label']
 
@@ -238,8 +248,6 @@ def add_mask_number(train_df):
 # masks_df = add_mask_number(train_df)
 
 
-
-
 def get_iou_by_id(idx):
 
     rle_mask = train_df.iloc[idx]['EncodedPixels']
@@ -252,11 +260,28 @@ def get_iou_by_id(idx):
     iou = compute_iou(true, pred)
     return iou
 
+
 train_img_ids = train_df.index.values
-total_iou = sum([get_iou_by_id(iid) for iid in train_img_ids])
-average_iou = total_iou/len(train_img_ids)
-print("Average IOU:")
-print(average_iou)
+
+
+def has_mask(row):
+    return isinstance(row['EncodedPixels'], str)
+
+
+def calculate_avarage_iou(train_img_ids):
+    total_iou = 0
+    for idx in train_img_ids:
+        if has_mask(train_df.iloc[idx]):
+            total_iou += get_iou_by_id(idx)
+    average_iou = total_iou/len(train_img_ids)
+    return average_iou
+
+# print("Average IOU:")
+# print(calculate_avarage_iou(train_img_ids))
+
+
+for idx in train_img_ids[30:40]:
+    plot_mask_by_id(idx)
 
 #
 #
